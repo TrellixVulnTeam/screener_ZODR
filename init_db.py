@@ -1,18 +1,22 @@
-
+#from urllib.request import urlopen
 import requests
-from urllib.request import urlopen
+import json
 from zipfile import ZipFile
 from io import BytesIO
 import xml.etree.ElementTree as elemTree
+from pymongo import MongoClient
 
 api_key = '0d7e16db6f9cf5f87cab625673fd7c5fa70ebc82'
-url = "https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=" + api_key
-resp = urlopen(url)
+client = MongoClient('localhost',27017)
+db = client.dbstock
 
-# 수신된 resp의 bytes를 Buffer에 쌓고 zipfile을 로드한다.
-
+# 고유번호 받아와서 상장주식 딕셔너리로 받아dhk MongoDB에 저장하는 코
 def get_corpCode():
-    with ZipFile(BytesIO(resp.read())) as zf:
+    db.corpCode.delete_many({})
+    url = "https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=" + api_key
+    resp = requests.get(url)
+
+    with ZipFile(BytesIO(resp.content)) as zf:
         file_list = zf.namelist()
         while len(file_list) > 0:
             file_name = file_list.pop()
@@ -26,47 +30,46 @@ def get_corpCode():
     stock_code = [x.findtext("stock_code") for x in XML_stocklist]
     modify_date = [x.findtext("modify_date") for x in XML_stocklist]
 
-    stocklist = {}
-
     for i in range(len(corp_code)):
         if stock_code[i] == ' ':
             continue
-        stocklist[corp_code[i]] = (corp_name[i], stock_code[i], modify_date[i])
+        doc = {"corp_code":corp_code[i],"corp_name":corp_name[i], "stock_code":stock_code[i], "modify_date": modify_date[i]}
+        db.corpCode.insert_one(doc)
+    return
 
-    return stocklist
+#향후 필요한 작업: 분기별로 나누는 작업, 연도별로 쪼깨는 작업드
+def get_financials():
+    db.financials.delete_many({})
 
-#해당 고유번호의 전제재무제표를 받아오는 코드
-#향후 필요한 작업: 분기별로 나누는 작업
-#연도별로 쪼깨는 작업
+    corp_code = ["00126380"]
+    bsns_year = ["2019","2018","2017"]
+    reprt_code = ["11011"]  #사업보고서
+    fs_div = ["CFS"]  #연결
 
-def get_financials(corp_code):
-    bsns_year = "2019"
-    reprt_code = "11011"
-    fs_div = "CFS"
+    accounts = ["수익(매출액)", "현금및현금성자산"]  # 필요한 변수 리스트
 
-    url = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.xml?crtfc_key=" + api_key + "&corp_code=" + corp_code + "&bsns_year=" + bsns_year + "&reprt_code=" + reprt_code + "&fs_div=" + fs_div
-    # 재시도 하는 부분을 만든이유는 한번씩 연결이 불안정한지 120초 시간오버로 에러가 발생하는데 그럴때를 대비해 만들었다고 함
-    # 출처: https://electromastersesi.tistory.com/150?category=823376 [sesi]
-    # while True:
-    #     try:
-    #         resp = urlopen(url)
-    #     except Exception as e:
-    #         print(str(e))
-    #         print("재시도합니다")
-    #         continue
-    #     break
-    resp = urlopen(url)
+    for i in corp_code:
+        for j in bsns_year:
+            for k in reprt_code:
+                for l in fs_div:
+                    url = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json?crtfc_key=" + api_key + "&corp_code=" + i + "&bsns_year=" + j + "&reprt_code=" + k + "&fs_div=" + l
+                    resp = requests.get(url) #response object
+                    resp = resp.json() #json으로 변환;
+                    resp = resp["list"] #list값만 빼내기. 변수타입 역시 리스트.
 
-    tree = elemTree.fromstring(resp.read().decode())
-    if tree.findtext("status") == "020":
-        print("일일 요청제한을 초과하여 종료합니다")
-    else:
-        elemTree.ElementTree(tree).write("testing.xml")
+                    #고유번호DB를 조회해서 주식번호와 회사이름 찾
+                    stock_code = db.corpCode.find_one({"corp_code":i})["stock_code"]
+                    corp_name = db.corpCode.find_one({"corp_code":i})["corp_name"]
 
-def save_to_mongoDB():
-    
+                    output = {"stock_code":stock_code,"corp_name":corp_name,"corp_code":i,"bsns_year":j}
 
-# 실행
-# 00635134 = CJ제일제당
-get_financials('00635134')
+                    for dict in resp:
+                        # 필요한 값만 빼내기
+                        if dict["account_nm"] in accounts:
+                            output[dict["account_nm"]]=dict["thstrm_amount"]
+                    db.financials.insert_one(output) #몽고DB로 저장
+    #print(list(db.financials.find({}))) #테스트용
+    return
 
+#get_corpCode()
+get_financials()
