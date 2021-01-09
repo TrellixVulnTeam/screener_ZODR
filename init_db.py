@@ -10,7 +10,7 @@ api_key = '0d7e16db6f9cf5f87cab625673fd7c5fa70ebc82'
 client = MongoClient('localhost',27017)
 db = client.dbstock
 
-# 고유번호 받아와서 상장주식 딕셔너리로 받아dhk MongoDB에 저장하는 코
+# 고유번호 받아와서 상장주식 딕셔너리로 변환 후 MongoDB에 저장하는 함
 def get_corpCode():
     db.corpCode.delete_many({})
     url = "https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=" + api_key
@@ -37,16 +37,23 @@ def get_corpCode():
         db.corpCode.insert_one(doc)
     return
 
-#향후 필요한 작업: 분기별로 나누는 작업, 연도별로 쪼깨는 작업드
+#상장사 재무제표 딕셔너리로 변환해서 몽고DB로 변환하는 코드.
 def get_financials():
-    db.financials.delete_many({})
 
-    corp_code = ["00126380"]
-    bsns_year = ["2019","2018","2017"]
+    db.financials.delete_many({})  # DB 비우기트
+
+    accounts_dirty = ["수익(매출액)"]  # 필요하지만 이름이 일관되지 않은 항목
+    dirty2clean = {"수익(매출액)":"매출액"}   # 그래서 이름을 무엇으로 바꿀지 조회할 딕셔너리
+    accounts_clean = ["매출액","현금및현금성자산"]  # 정리된 항목리스
+
+    #다운받을 기업리스트
+    sample_co = list(db.corpCode.find({}).sort("stock_code",-1).limit(50)) #개수 한정    corp_code = []
+    corp_code=[]
+    for i in range(len(sample_co)):
+        corp_code.append(sample_co[i]["corp_code"])
+    bsns_year = ["2019"]
     reprt_code = ["11011"]  #사업보고서
     fs_div = ["CFS"]  #연결
-
-    accounts = ["수익(매출액)", "현금및현금성자산"]  # 필요한 변수 리스트
 
     for i in corp_code:
         for j in bsns_year:
@@ -55,8 +62,9 @@ def get_financials():
                     url = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json?crtfc_key=" + api_key + "&corp_code=" + i + "&bsns_year=" + j + "&reprt_code=" + k + "&fs_div=" + l
                     resp = requests.get(url) #response object
                     resp = resp.json() #json으로 변환;
-                    resp = resp["list"] #list값만 빼내기. 변수타입 역시 리스트.
-
+                    if resp["status"] !="000":
+                        continue
+                    resp = resp["list"]
                     #고유번호DB를 조회해서 주식번호와 회사이름 찾
                     stock_code = db.corpCode.find_one({"corp_code":i})["stock_code"]
                     corp_name = db.corpCode.find_one({"corp_code":i})["corp_name"]
@@ -65,11 +73,24 @@ def get_financials():
 
                     for dict in resp:
                         # 필요한 값만 빼내기
-                        if dict["account_nm"] in accounts:
+                        if dict["account_nm"] in accounts_dirty:
+                            output[dirty2clean[dict["account_nm"]]]=dict["thstrm_amount"]
+                        if dict["account_nm"] in accounts_clean:
                             output[dict["account_nm"]]=dict["thstrm_amount"]
                     db.financials.insert_one(output) #몽고DB로 저장
-    #print(list(db.financials.find({}))) #테스트용
+    #print(list(db.financials.find({}))) #테스트
     return
+
+def test():
+    i= "01316236"
+    j = "2019"
+    k = "11011"  #사업보고서
+    l = "CFS"  #연결
+    url = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json?crtfc_key=" + api_key + "&corp_code=" + i + "&bsns_year=" + j + "&reprt_code=" + k + "&fs_div=" + l
+    resp = requests.get(url) #response object
+    resp = resp.json() #json으로 변환;
+    print(resp)
 
 #get_corpCode()
 get_financials()
+#test()
