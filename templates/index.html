@@ -2,9 +2,104 @@
 <html lang="KOR">
 <head>
     <meta charset="UTF-8">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"  integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <!-- JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+
     <title>Title</title>
+
+    <script>
+        $(document).ready(function(){refreshItems()});
+
+        let counter = 1;
+        let series = ["매출액","매출총이익","1","2"];
+
+        function refreshItems(){
+            for (let i = 0; i<series.length; i++){
+                let tempHtml = `<option>${series[i]}</option>`;
+                $(`#item${counter}`).append(tempHtml);
+            }
+        };
+
+        function addCriteria(){
+            console.log("addCriteria");
+            counter = counter + 1;
+            let tempHtml =
+                    `<div class="criteriaItem" id="criteria${counter}">
+                        <span>
+                            <select class="dropdown" id="item${counter}">
+                                <option>Select</option>
+                            </select>
+                        </span>
+                        <label>
+                            <input type="radio" name="radio${counter}" id="option1" checked> >= </input>
+                            <input type="radio" name="radio${counter}" id="option2"> = </input>
+                            <input type="radio" name="radio${counter}" id="option3"> <= </input>
+                        </label>
+                        <span>
+                            <input type="num${counter}">
+                        </span>
+                    </div>`
+            $(".criteriaBox").append(tempHtml);
+            refreshItems();
+        }
+
+        function run(){
+            let input = {};
+            for (let i = 1; i<=counter; i++){
+                let item = $(`#item${i}`).val()
+                let ineq = $(`input[name="radio${i}"]:checked`).val();
+                let num = $(`#num${i}`).val()
+                input[i] = {item,ineq,num};
+            }
+            console.log(input)
+            $.ajax({
+                type: 'GET',
+                url: '/result',
+                data: {"input":input},
+                success: function (response) {
+                    console.log("YES")
+                }
+            })
+        }
+
+
+    </script>
+
 </head>
 <body>
+    <div class="wrap">
+        <div class="title">
+            <h1>주식 조건별검색 Screener</h1>
+        </div>
+        <div>
+            <button onclick="addCriteria()"> 조건추가</button>
+        </div>
 
+        <div class="criteriaBox">
+            <div class="criteriaItem" id="criteria1">
+                <span>
+                    <select class="dropdown" id="item1">
+                        <option>Select</option>
+                    </select>
+                </span>
+                <label>
+                    <input type="radio" name="radio1" value="gte"checked> >= </input>
+                    <input type="radio" name="radio1" value="equal"> = </input>
+                    <input type="radio" name="radio1" value="lte"> <= </input>
+                </label>
+                <span>
+                    <input type="number" id="num1">
+                </span>
+            </div>
+        </div>
+        <div class="run">
+            <button onClick="run()">Screen</button>
+        </div>
+        <div class="result">
+        </div>
+    </div>
 </body>
 </html>

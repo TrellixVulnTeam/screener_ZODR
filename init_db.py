@@ -46,7 +46,7 @@ def get_financials():
     dirty2clean = {"수익(매출액)":"매출액"}   # 그래서 이름을 무엇으로 바꿀지 조회할 수 있는 딕셔너리
     accounts_clean = ["현금및현금성자산","재고자산","유형자산","무형자산","자산총계","매출액","매출총이익","영업이익(손실)", "당기순이익(손실)","영업활동현금흐름","재무활동현금흐름","투자활동현금흐름"]
     #다운받을 기업리스트
-    sample_co = list(db.corpCode.find({}).sort("stock_code",-1).limit(100)) #개수 한정    corp_code = []
+    sample_co = list(db.corpCode.find({}).sort("stock_code",-1).limit(50)) #개수 한정    corp_code = []
     corp_code=[]
     for i in range(len(sample_co)):
         corp_code.append(sample_co[i]["corp_code"])
