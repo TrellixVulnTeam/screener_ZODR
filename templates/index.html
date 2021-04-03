@@ -8,13 +8,13 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
 
-    <title>Title</title>
+    <title>주식스크린</title>
 
     <script>
         $(document).ready(function(){refreshItems()});
 
         let counter = 1;
-        let series = ["매출액","매출총이익","1","2"];
+        let series = ["매출액","매출총이익","현금및현금성자산","당기손이익(손실)"];
 
         function refreshItems(){
             for (let i = 0; i<series.length; i++){
@@ -34,12 +34,12 @@
                             </select>
                         </span>
                         <label>
-                            <input type="radio" name="radio${counter}" id="option1" checked> >= </input>
-                            <input type="radio" name="radio${counter}" id="option2"> = </input>
-                            <input type="radio" name="radio${counter}" id="option3"> <= </input>
+                            <input type="radio" name="radio${counter}" value="gte" checked> >= </input>
+                            <input type="radio" name="radio${counter}" value="eq"> = </input>
+                            <input type="radio" name="radio${counter}" value="lte"> <= </input>
                         </label>
                         <span>
-                            <input type="num${counter}">
+                            <input type="number" id="num${counter}">
                         </span>
                     </div>`
             $(".criteriaBox").append(tempHtml);
@@ -47,18 +47,21 @@
         }
 
         function run(){
-            let input = {};
+            let input = {}
             for (let i = 1; i<=counter; i++){
                 let item = $(`#item${i}`).val()
-                let ineq = $(`input[name="radio${i}"]:checked`).val();
+                let ineq = $(`input[name="radio${i}"]:checked`).val()
                 let num = $(`#num${i}`).val()
-                input[i] = {item,ineq,num};
+                if (item === "Select" || num == "") {continue}
+                input[i] = [item,ineq,num]
             }
             console.log(input)
             $.ajax({
-                type: 'GET',
+                type: 'POST',
                 url: '/result',
-                data: {"input":input},
+                data: JSON.stringify(input),
+                contentType: 'application/json',
+                datatype: 'json',
                 success: function (response) {
                     console.log("YES")
                 }
@@ -86,8 +89,8 @@
                     </select>
                 </span>
                 <label>
-                    <input type="radio" name="radio1" value="gte"checked> >= </input>
-                    <input type="radio" name="radio1" value="equal"> = </input>
+                    <input type="radio" name="radio1" value="gte" checked> >= </input>
+                    <input type="radio" name="radio1" value="eq"> = </input>
                     <input type="radio" name="radio1" value="lte"> <= </input>
                 </label>
                 <span>
@@ -96,7 +99,7 @@
             </div>
         </div>
         <div class="run">
-            <button onClick="run()">Screen</button>
+            <button onClick="run()">실행</button>
         </div>
         <div class="result">
         </div>

@@ -1,6 +1,6 @@
-#from urllib.request import urlopen
-import requests
+from urllib.request import urlopen
 import json
+import requests
 from zipfile import ZipFile
 from io import BytesIO
 import xml.etree.ElementTree as elemTree
@@ -45,8 +45,9 @@ def get_financials():
     accounts_dirty = ["수익(매출액)"]  # 필요하지만 이름이 일관되지 않은 항목
     dirty2clean = {"수익(매출액)":"매출액"}   # 그래서 이름을 무엇으로 바꿀지 조회할 수 있는 딕셔너리
     accounts_clean = ["현금및현금성자산","재고자산","유형자산","무형자산","자산총계","매출액","매출총이익","영업이익(손실)", "당기순이익(손실)","영업활동현금흐름","재무활동현금흐름","투자활동현금흐름"]
+
     #다운받을 기업리스트
-    sample_co = list(db.corpCode.find({}).sort("stock_code",-1).limit(50)) #개수 한정    corp_code = []
+    sample_co = list(db.corpCode.find({}).sort("stock_code",-1).limit(100)) #개수 한정    corp_code = []
     corp_code=[]
     for i in range(len(sample_co)):
         corp_code.append(sample_co[i]["corp_code"])
@@ -57,10 +58,12 @@ def get_financials():
     for i in corp_code:
         for j in bsns_year:
             url = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json?crtfc_key=" + api_key + "&corp_code=" + i + "&bsns_year=" + j + "&reprt_code=" + reprt_code + "&fs_div=" + fs_div
-            resp = requests.get(url) #response object
-            resp = resp.json() #json으로 변환;
+            resp = requests.get(url) #response object (json)
+            resp = resp.json()
             if resp["status"] !="000":
-                print(resp)
+                if resp["status"] == "013":
+                    db.corpCode.delete_one({"corp_code":i}) #"조회된 데이타가 없는 경우 기존 corpCode DB에서 삭제"
+                #print(resp)
                 continue
             resp = resp["list"]
             #고유번호DB를 조회해서 주식번호와 회사이름 찾기
@@ -80,7 +83,7 @@ def get_financials():
     return
 
 def test():
-    i= "01316236"
+    i = "01316236"
     j = "2019"
     k = "11011"  #사업보고서
     l = "CFS"  #연결
@@ -90,5 +93,5 @@ def test():
     print(resp)
 
 #get_corpCode()
-get_financials()
+#get_financials()
 #test()
